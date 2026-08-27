@@ -1,0 +1,44 @@
+name: Reddit Daily Digest Automation
+
+on:
+  schedule:
+    # 国际标准时间 UTC 20:00 (相当于北京时间每天凌晨 04:00 自动运行)
+    - cron: '0 20 * * *'
+  # 允许在 GitHub 网页端手动随时触发运行
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. 拉取仓库代码
+        uses: actions/checkout@v4
+
+      - name: 2. 配置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 3. 安装依赖包
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 4. 执行深度抓取程序 (fetcher.py)
+        run: python fetcher.py
+
+      - name: 5. 执行翻译与排版程序 (translator.py)
+        env:
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+        run: python translator.py
+
+      - name: 6. 将最新数据和网页自动 Commit 到仓库
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add reddit_posts_rich_cache.json today_digest.html
+          git diff --quiet && git diff --staged --quiet || (git commit -m "更新每日 Reddit 深度精选日报 [$(date +'%Y-%m-%d')]" && git push)
