@@ -2,9 +2,8 @@ name: Reddit Daily Digest Automation
 
 on:
   schedule:
-    # 国际标准时间 UTC 20:00 (相当于北京时间每天凌晨 04:00 自动运行)
+    # 国际标准时间 UTC 20:00 (北京时间每天凌晨 04:00 自动运行)
     - cron: '0 20 * * *'
-  # 允许在 GitHub 网页端手动随时触发运行
   workflow_dispatch:
 
 permissions:
@@ -13,6 +12,7 @@ permissions:
 jobs:
   run-digest:
     runs-on: ubuntu-latest
+    timeout-minutes: 120  # 显式限制超时为 2 小时，防止死锁
 
     steps:
       - name: 1. 拉取仓库代码
@@ -29,12 +29,14 @@ jobs:
           pip install -r requirements.txt
 
       - name: 4. 执行深度抓取程序 (fetcher.py)
-        run: python fetcher.py
+        run: |
+          python -u fetcher.py  # -u 参数让日志实时实时刷出，不积压缓冲
 
       - name: 5. 执行翻译与排版程序 (translator.py)
         env:
           DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
-        run: python translator.py
+        run: |
+          python -u translator.py
 
       - name: 6. 将最新数据和网页自动 Commit 到仓库
         run: |
